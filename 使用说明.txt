@@ -1,0 +1,306 @@
+AutoPDFTranslator 0.3.0 使用说明
+
+一、这是什么
+
+AutoPDFTranslator 是一个 PDF 批注意见翻译工具。
+
+它会从 PDF 中识别英文审图意见、建筑可视化修改意见、手写批注或图面标注，然后调用 AI 翻译，并在原 PDF 页面上写入可编辑的中文 FreeText 注释框。
+
+当前版本重点适用于：
+- 建筑可视化效果图 review PDF
+- 带英文 FreeText 批注的 PDF
+- 图片型/扫描型 review 图纸
+- 含手写英文意见的图纸
+
+
+二、安装
+
+1. 安装 Python，建议 3.10 或以上。
+2. 打开终端，进入程序目录：
+
+   cd C:\Users\lizhaohui\CodexProjects\AutoPDFTranslator
+
+3. 安装依赖：
+
+   pip install -r requirements.txt
+
+
+三、启动程序
+
+推荐方式：
+
+   streamlit run app.py
+
+桌面窗口方式：
+
+   run_desktop.bat
+
+或：
+
+   python desktop_app.py
+
+
+四、最常用流程
+
+1. 在 Upload PDFs 上传一个或多个 PDF。
+2. 程序会自动做 PDF 类型判定，并给出推荐翻译模式。
+3. 选择源语言和目标语言。
+4. 选择 Mode。
+5. 在 Advanced 中设置 API Providers 或 Local Models。
+6. 如需预估成本，点击 Analyze / Estimate。
+7. 点击 Translate 开始翻译。
+8. 完成后下载翻译后的 PDF，或到自动保存路径中查看结果。
+
+
+五、三种翻译模式怎么选
+
+1. text extraction only
+
+适合：
+- PDF 本身有文字层
+- PDF 里是原生 FreeText 英文批注
+- 需要速度最快、成本最低
+
+不适合：
+- 扫描图
+- 图片型 PDF
+- 手写意见
+
+
+2. hybrid
+
+推荐默认模式。
+
+适合：
+- 不确定 PDF 类型
+- 有些页是文字批注，有些页可能是图片或手写
+- 希望速度、成本、识别率之间平衡
+
+逻辑：
+- 先尝试文本提取
+- 对疑似图片/手写页再使用视觉识别兜底
+
+
+3. vision only
+
+适合：
+- 扫描型 PDF
+- 图片型 review 图
+- 手写批注明显较多
+
+注意：
+- 纯视觉识别建议使用 API Providers。
+- 本地模型即使能接入，也不一定真的具备可靠视觉识别能力。
+- 本地视觉识别可能很慢，并且会占用较多 CPU/GPU。
+
+
+六、API Providers 和 Local Models
+
+Advanced 里有两类模型配置：
+
+1. API Providers
+
+用于在线模型，例如 OpenAI、Kimi、Gemini 等 OpenAI-compatible 接口。
+
+通常需要填写：
+- Base URL
+- Model
+- API key
+
+适合：
+- 视觉识别
+- 手写批注
+- 对翻译质量要求较高的任务
+
+
+2. Local Models
+
+用于本地模型，例如 Ollama。
+
+TranslateGemma 示例：
+
+   Base URL: http://localhost:11434
+   Model: translategemma:latest
+
+注意：
+- TranslateGemma 更适合文本翻译。
+- 本地视觉能力取决于模型和 Ollama 服务本身，程序不会强行禁止 vision only，但实际效果可能不稳定。
+- 手写识别质量通常仍建议优先使用 API Providers。
+
+
+七、PDF 类型判定
+
+上传 PDF 后，程序会根据页面文本层、图片比例、FreeText 批注数量等信息判断 PDF 类型，并建议模式。
+
+常见结果：
+- 原生批注型 PDF：建议 text extraction only
+- 可提取文本型 PDF：建议 text extraction only
+- 图片/手写混合型 PDF：建议 hybrid
+- 扫描/图片型 PDF：建议 vision only
+
+最终模式以用户手动选择为准。
+
+
+八、进度条和终止按钮
+
+进度条会分阶段显示：
+- 提取意见
+- AI 批量翻译
+- 写入 PDF
+- 完成
+
+进度信息会显示：
+- 当前阶段
+- 已处理多少页
+- 还剩多少页
+- 已写入多少页
+- 总体百分比
+
+右侧的“终止”按钮：
+- 未执行任务时为灰色
+- 执行任务时为红色
+- 点击后会尽量停止当前任务
+
+注意：
+- 如果 AI 正在执行一次阻塞请求，需要等这次请求返回后才会真正停止。
+- 终止或失败时，程序会尽量保留当前已经完成的翻译结果 PDF，不会直接全部丢失。
+
+
+九、翻译结果和失败状态
+
+翻译成功：
+- 生成 translated.pdf
+- 写入中文 FreeText 注释
+- 保留原 PDF 页面
+
+如果未识别到意见：
+- 历史记录会显示失败（未识别到意见）
+
+如果部分翻译失败：
+- 历史记录会显示失败（部分未翻译）
+- 程序会尽量保留已经写入的部分结果
+
+如果任务失败：
+- 不播放彩屑动画
+- 会显示失败动画和失败原因
+
+
+十、注释框设置
+
+可在 Advanced 中调整：
+- Annotation font size：字号 2-72，同步 Bluebeam 字号范围
+- Placement：注释框位置
+- Vision DPI：视觉识别渲染精度
+- Max pages per PDF：限制每个 PDF 处理页数
+
+建议：
+- 普通批注字号可用 8-12
+- 大图或展示用 PDF 可用 12-18
+- 需要贴近原图小批注时可用 6-8
+
+
+十一、翻译历史
+
+翻译历史会记录：
+- 翻译日期
+- 文件名
+- 翻译后文件名
+- 翻译模式
+- 使用 API 还是本地模型
+- Provider
+- Model
+- 任务耗时
+- 翻译结果
+
+历史记录区域支持折叠和滚动，不会无限拉高页面。
+
+
+十二、自动保存路径
+
+页面中的“自动保存路径”是结果自动保存目录。
+
+翻译完成后，PDF 会自动保存到该目录。
+
+也可以在结果区手动保存：
+- PDF
+- JSON
+- ZIP
+
+
+十三、手写批注识别建议
+
+如果是手写英文意见：
+- 优先使用 API Providers
+- 推荐使用 vision only 或 hybrid
+- 如果默认显示比例看不清，程序会尝试进行页面区域检测、ROI 放大、局部识别和结果合并
+
+本地模型注意：
+- 本地模型可能只识别一部分手写意见
+- 本地模型可能把模糊文字猜错
+- 本地模型视觉识别可能耗时较长
+
+
+十四、调试视觉识别
+
+如果需要排查视觉识别为什么漏意见，可以设置环境变量：
+
+   set AUTOPDFTRANSLATOR_VISION_DEBUG_DIR=C:\tmp\autopdftranslator_vision_debug
+
+程序会输出：
+- full_page 图片
+- ROI 放大图
+- 模型原始返回
+- 解析后的结果
+
+这些文件可以用来判断：
+- 是否正确裁到了有意见的区域
+- AI 是否识别错
+- 结果是否被过滤或去重
+
+
+十五、常见问题
+
+1. 为什么本地模型不翻译或只跑一秒？
+
+可能原因：
+- 模型不支持当前请求格式
+- 模型不支持视觉输入
+- 本地服务返回空内容
+- Prompt 不符合该模型预期
+
+TranslateGemma 已内置专用翻译 prompt，但它更适合文本翻译，不保证视觉识别质量。
+
+
+2. 为什么 vision only 建议用 API Providers？
+
+因为纯视觉识别需要模型同时具备：
+- 图像理解
+- OCR
+- 手写识别
+- 建筑语境理解
+- JSON 格式输出稳定性
+
+本地模型在这些方面不一定稳定。
+
+
+3. 为什么 AI 翻译阶段看起来卡住？
+
+如果是一次性批量请求，进度条会显示“等待 AI 返回”。
+
+此时程序不是逐页卡住，而是在等待模型完成这一批翻译。
+
+
+4. 为什么有些重复短句会保留？
+
+建筑图纸里相同文字可能出现在不同位置，例如：
+- remove building
+- add openings
+- see model
+- 20 storeys
+
+这些通常代表不同位置的意见，所以程序会尽量保留。
+
+
+5. 删除已上传文件后进度条会怎样？
+
+删除文件后，任务进度会重置为未开始状态。
