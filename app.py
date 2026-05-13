@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import base64
 import io
 import json
 import logging
@@ -18,6 +19,7 @@ import xml.etree.ElementTree as ET
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 from autopdftranslator import APP_NAME, APP_VERSION, LayoutConfig, TranslationCancelled, analyze_pdf, translate_pdf
 
@@ -661,6 +663,23 @@ def _default_local_provider_config() -> dict[str, str]:
 
 def _default_export_output_dir() -> str:
     return str((Path(__file__).resolve().parent / "outputs").resolve())
+
+
+def _is_streamlit_cloud_runtime() -> bool:
+    markers = [
+        "STREAMLIT_SHARING_MODE",
+        "STREAMLIT_CLOUD",
+        "STREAMLIT_RUNTIME",
+    ]
+    if any(os.getenv(marker) for marker in markers):
+        return True
+    resolved = str(Path(__file__).resolve()).replace("\\", "/").lower()
+    cwd = str(Path.cwd().resolve()).replace("\\", "/").lower()
+    return resolved.startswith("/mount/src/") or cwd.startswith("/mount/src/")
+
+
+def _server_path_saving_enabled() -> bool:
+    return not _is_streamlit_cloud_runtime()
 
 
 def _snap_to_adobe_font_size(value: Any) -> float:
@@ -1479,6 +1498,8 @@ def _init_state() -> None:
         "confetti_rendered_run_id": "",
         "failure_animation_run_id": "",
         "failure_animation_rendered_run_id": "",
+        "browser_download_run_id": "",
+        "browser_download_rendered_run_id": "",
         "translation_running": False,
         "translation_cancel_requested": False,
         "save_path_message": "",
@@ -1625,6 +1646,53 @@ def _save_artifacts_to_path(
         return True, f"已保存到: {target_dir}（共 {saved_count} 个文件；{detail}）"
     except Exception as exc:
         return False, f"保存失败: {exc}"
+
+
+def _browser_download_payload() -> tuple[bytes, str, str]:
+    artifacts = st.session_state.get("artifacts", [])
+    if not artifacts:
+        return b"", "", ""
+    zip_bytes = st.session_state.get("batch_zip_bytes", b"")
+    zip_name = st.session_state.get("batch_zip_name", "")
+    if len(artifacts) > 1 and zip_bytes and zip_name:
+        return zip_bytes, str(zip_name), "application/zip"
+    first = artifacts[0]
+    return (
+        bytes(first.get("output_pdf_bytes", b"")),
+        str(first.get("output_pdf_name", "translated.pdf")),
+        "application/pdf",
+    )
+
+
+def _render_browser_auto_download() -> None:
+    run_id = str(st.session_state.get("browser_download_run_id", ""))
+    if not run_id or st.session_state.get("browser_download_rendered_run_id") == run_id:
+        return
+    data, filename, mime = _browser_download_payload()
+    if not data or not filename:
+        return
+    # Browser auto-downloads can be blocked by site settings. The normal Streamlit
+    # download buttons remain the reliable fallback immediately below.
+    b64 = base64.b64encode(data).decode("ascii")
+    safe_filename = html.escape(filename, quote=True)
+    safe_mime = html.escape(mime, quote=True)
+    components.html(
+        f"""
+        <html>
+          <body>
+            <a id="autopdf-download" download="{safe_filename}" href="data:{safe_mime};base64,{b64}"></a>
+            <script>
+              const link = document.getElementById("autopdf-download");
+              if (link) {{
+                setTimeout(() => link.click(), 250);
+              }}
+            </script>
+          </body>
+        </html>
+        """,
+        height=0,
+    )
+    st.session_state["browser_download_rendered_run_id"] = run_id
 
 
 def _append_translation_history(entries: list[dict[str, str]]) -> None:
@@ -2485,30 +2553,34 @@ def _render_outputs() -> None:
         f"Execution ratio in this run: Vision {total_vision_pages}/{total_pages} ({vision_ratio:.1f}%), "
         f"Text {total_text_pages}/{total_pages} ({100.0 - vision_ratio:.1f}%)."
     )
+    _render_browser_auto_download()
 
-    save_col1, save_col2 = st.columns([3, 1], gap="small")
-    with save_col1:
-        st.caption(f"指定保存路径: {st.session_state.get('export_output_dir', '')}")
-    with save_col2:
-        manual_save_clicked = st.button("保存到指定路径", width="stretch", key="manual_save_to_path")
+    if _server_path_saving_enabled():
+        save_col1, save_col2 = st.columns([3, 1], gap="small")
+        with save_col1:
+            st.caption(f"指定保存路径: {st.session_state.get('export_output_dir', '')}")
+        with save_col2:
+            manual_save_clicked = st.button("保存到指定路径", width="stretch", key="manual_save_to_path")
 
-    if manual_save_clicked:
-        ok, message = _save_artifacts_to_path(
-            artifacts,
-            str(st.session_state.get("export_output_dir", "")),
-            st.session_state.get("batch_zip_bytes", b""),
-            st.session_state.get("batch_zip_name", ""),
-            save_json=True,
-            save_zip=True,
-        )
-        st.session_state["save_path_message"] = message
-        if ok:
-            _persist_ui_settings()
-            st.success(message)
-        else:
-            st.error(message)
-    elif st.session_state.get("save_path_message"):
-        st.caption(str(st.session_state["save_path_message"]))
+        if manual_save_clicked:
+            ok, message = _save_artifacts_to_path(
+                artifacts,
+                str(st.session_state.get("export_output_dir", "")),
+                st.session_state.get("batch_zip_bytes", b""),
+                st.session_state.get("batch_zip_name", ""),
+                save_json=True,
+                save_zip=True,
+            )
+            st.session_state["save_path_message"] = message
+            if ok:
+                _persist_ui_settings()
+                st.success(message)
+            else:
+                st.error(message)
+        elif st.session_state.get("save_path_message"):
+            st.caption(str(st.session_state["save_path_message"]))
+    else:
+        st.info("当前运行在 Streamlit Cloud，服务器保存路径不可直接访问；请使用下方浏览器下载按钮保存文件。")
 
     if st.session_state["batch_zip_bytes"]:
         st.download_button(
@@ -2990,11 +3062,14 @@ def main() -> None:
         elif vision_reason:
             st.caption(vision_reason)
         st.caption(MODE_HINTS[mode_label])
-        st.text_input(
-            "自动保存路径",
-            key="export_output_dir",
-            help="翻译完成后会自动保存翻译后的 PDF 到该目录。",
-        )
+        if _server_path_saving_enabled():
+            st.text_input(
+                "自动保存路径",
+                key="export_output_dir",
+                help="翻译完成后会自动保存翻译后的 PDF 到该目录。",
+            )
+        else:
+            st.info("网页云端运行时不会使用服务器保存路径；翻译完成后请通过浏览器下载结果。")
         action_col1, action_col2 = st.columns(2, gap="small")
         with action_col1:
             analyze_clicked = st.button(
@@ -3423,20 +3498,24 @@ def main() -> None:
             st.session_state["batch_zip_bytes"] = zip_bytes
             st.session_state["batch_zip_name"] = zip_name
 
-            auto_ok, auto_message = _save_artifacts_to_path(
-                artifacts,
-                str(st.session_state.get("export_output_dir", "")),
-                zip_bytes,
-                zip_name,
-                save_json=False,
-                save_zip=False,
-            )
+            if _server_path_saving_enabled():
+                auto_ok, auto_message = _save_artifacts_to_path(
+                    artifacts,
+                    str(st.session_state.get("export_output_dir", "")),
+                    zip_bytes,
+                    zip_name,
+                    save_json=False,
+                    save_zip=False,
+                )
+            else:
+                auto_ok = False
+                auto_message = "云端运行不保存到服务器路径；请使用浏览器下载结果。"
             st.session_state["save_path_message"] = auto_message
             if auto_ok:
                 _persist_ui_settings()
                 st.session_state["run_message"] = f"{base_message} {auto_message}"
             else:
-                st.session_state["run_message"] = base_message
+                st.session_state["run_message"] = f"{base_message} {auto_message}"
 
             failure_reason = _artifact_failure_reason(artifacts, mode_label)
             history_entries = _build_history_entries(
@@ -3462,6 +3541,7 @@ def main() -> None:
                 st.session_state["task_progress_text"] = done_text
                 st.session_state["task_progress_stage"] = "done"
                 st.session_state["confetti_run_id"] = str(uuid.uuid4())
+                st.session_state["browser_download_run_id"] = str(uuid.uuid4())
             st.session_state["translation_running"] = False
             st.session_state["translation_cancel_requested"] = False
             _render_stage_progress(progress_bar)
