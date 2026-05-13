@@ -75,6 +75,47 @@ Windows quick start:
 run_desktop.bat
 ```
 
+## Build Windows Installer
+
+The recommended Windows packaging route is PyInstaller `onedir` plus Inno Setup.
+
+Build the executable folder:
+
+```powershell
+.\packaging\build_exe.ps1 -SkipInstaller
+```
+
+Build the executable folder and installer:
+
+```powershell
+.\packaging\build_exe.ps1
+```
+
+Optional clean rebuild:
+
+```powershell
+.\packaging\build_exe.ps1 -Clean
+```
+
+Requirements:
+
+- Windows
+- Python installed
+- Inno Setup 6 installed if you want the `.exe` installer
+
+Build outputs:
+
+- `dist\AutoPDFTranslator\AutoPDFTranslator.exe`
+- `installer\AutoPDFTranslator-Setup-0.3.0.exe`
+
+Packaged desktop mode stores user settings, translation history, corpus, memory, and output PDFs under:
+
+```text
+%LOCALAPPDATA%\AutoPDFTranslator
+```
+
+API keys are not bundled into the installer. Users should enter provider settings in the app UI after installation.
+
 ## Basic Workflow
 
 1. Upload one or more PDF files.

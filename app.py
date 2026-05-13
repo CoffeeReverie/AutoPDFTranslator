@@ -123,11 +123,22 @@ LOCAL_MODEL_PRESETS: dict[str, dict[str, str]] = {
     },
 }
 
-UI_CONFIG_PATH = Path(__file__).resolve().parent / ".autopdftranslator_ui_config.json"
-TRANSLATION_HISTORY_PATH = Path(__file__).resolve().parent / ".autopdftranslator_history.json"
-TRANSLATION_CORPUS_PATH = Path(__file__).resolve().parent / ".autopdftranslator_corpus.json"
-TRANSLATION_MEMORY_PATH = Path(__file__).resolve().parent / ".autopdftranslator_memory.json"
-RUNTIME_MEMORY_PATH = Path(__file__).resolve().parent / ".autopdftranslator_runtime_memory.json"
+def _app_storage_root() -> Path:
+    raw = os.getenv("AUTOPDFTRANSLATOR_STORAGE_DIR", "").strip()
+    root = Path(raw).expanduser() if raw else Path(__file__).resolve().parent
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    return root
+
+
+APP_STORAGE_ROOT = _app_storage_root()
+UI_CONFIG_PATH = APP_STORAGE_ROOT / ".autopdftranslator_ui_config.json"
+TRANSLATION_HISTORY_PATH = APP_STORAGE_ROOT / ".autopdftranslator_history.json"
+TRANSLATION_CORPUS_PATH = APP_STORAGE_ROOT / ".autopdftranslator_corpus.json"
+TRANSLATION_MEMORY_PATH = APP_STORAGE_ROOT / ".autopdftranslator_memory.json"
+RUNTIME_MEMORY_PATH = APP_STORAGE_ROOT / ".autopdftranslator_runtime_memory.json"
 DEFAULT_USD_TO_CNY_RATE = 7.20
 MAX_CORPUS_ENTRY_CHARS = 120000
 MAX_MEMORY_EXAMPLE_CHARS = 600
@@ -662,7 +673,7 @@ def _default_local_provider_config() -> dict[str, str]:
 
 
 def _default_export_output_dir() -> str:
-    return str((Path(__file__).resolve().parent / "outputs").resolve())
+    return str((APP_STORAGE_ROOT / "outputs").resolve())
 
 
 def _is_streamlit_cloud_runtime() -> bool:

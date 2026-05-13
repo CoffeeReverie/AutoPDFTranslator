@@ -40,7 +40,42 @@ AutoPDFTranslator 是一个 PDF 批注意见翻译工具。
    python desktop_app.py
 
 
-四、最常用流程
+四、Windows 安装包打包
+
+推荐打包方式：
+- PyInstaller onedir：生成程序目录
+- Inno Setup：生成正式安装包
+
+打包前请确认：
+- 当前电脑已安装 Python
+- 如需生成安装包，已安装 Inno Setup 6
+
+只生成 exe 程序目录：
+
+   .\packaging\build_exe.ps1 -SkipInstaller
+
+生成 exe 程序目录 + 安装包：
+
+   .\packaging\build_exe.ps1
+
+清理后重新打包：
+
+   .\packaging\build_exe.ps1 -Clean
+
+打包结果：
+- dist\AutoPDFTranslator\AutoPDFTranslator.exe
+- installer\AutoPDFTranslator-Setup-0.3.0.exe
+
+安装版不会内置 API key。
+
+用户配置、翻译历史、语料库、记忆库和默认输出目录会保存到：
+
+   %LOCALAPPDATA%\AutoPDFTranslator
+
+这样即使程序安装在 Program Files，也不会因为安装目录不可写而报错。
+
+
+五、最常用流程
 
 1. 在 Upload PDFs 上传一个或多个 PDF。
 2. 程序会自动做 PDF 类型判定，并给出推荐翻译模式。
@@ -52,7 +87,7 @@ AutoPDFTranslator 是一个 PDF 批注意见翻译工具。
 8. 完成后下载翻译后的 PDF，或到自动保存路径中查看结果。
 
 
-五、三种翻译模式怎么选
+六、三种翻译模式怎么选
 
 1. text extraction only
 
@@ -94,7 +129,7 @@ AutoPDFTranslator 是一个 PDF 批注意见翻译工具。
 - 本地视觉识别可能很慢，并且会占用较多 CPU/GPU。
 
 
-六、API Providers 和 Local Models
+七、API Providers 和 Local Models
 
 Advanced 里有两类模型配置：
 
@@ -128,7 +163,7 @@ TranslateGemma 示例：
 - 手写识别质量通常仍建议优先使用 API Providers。
 
 
-七、PDF 类型判定
+八、PDF 类型判定
 
 上传 PDF 后，程序会根据页面文本层、图片比例、FreeText 批注数量等信息判断 PDF 类型，并建议模式。
 
@@ -141,7 +176,7 @@ TranslateGemma 示例：
 最终模式以用户手动选择为准。
 
 
-八、进度条和终止按钮
+九、进度条和终止按钮
 
 进度条会分阶段显示：
 - 提取意见
@@ -166,7 +201,7 @@ TranslateGemma 示例：
 - 终止或失败时，程序会尽量保留当前已经完成的翻译结果 PDF，不会直接全部丢失。
 
 
-九、翻译结果和失败状态
+十、翻译结果和失败状态
 
 翻译成功：
 - 生成 translated.pdf
@@ -185,7 +220,7 @@ TranslateGemma 示例：
 - 会显示失败动画和失败原因
 
 
-十、注释框设置
+十一、注释框设置
 
 可在 Advanced 中调整：
 - Annotation font size：字号 2-72，同步 Bluebeam 字号范围
@@ -199,7 +234,7 @@ TranslateGemma 示例：
 - 需要贴近原图小批注时可用 6-8
 
 
-十一、翻译历史
+十二、翻译历史
 
 翻译历史会记录：
 - 翻译日期
@@ -215,7 +250,7 @@ TranslateGemma 示例：
 历史记录区域支持折叠和滚动，不会无限拉高页面。
 
 
-十二、自动保存路径
+十三、自动保存路径
 
 页面中的“自动保存路径”是结果自动保存目录。
 
@@ -227,7 +262,7 @@ TranslateGemma 示例：
 - ZIP
 
 
-十三、手写批注识别建议
+十四、手写批注识别建议
 
 如果是手写英文意见：
 - 优先使用 API Providers
@@ -240,7 +275,7 @@ TranslateGemma 示例：
 - 本地模型视觉识别可能耗时较长
 
 
-十四、调试视觉识别
+十五、调试视觉识别
 
 如果需要排查视觉识别为什么漏意见，可以设置环境变量：
 
@@ -258,7 +293,7 @@ TranslateGemma 示例：
 - 结果是否被过滤或去重
 
 
-十五、常见问题
+十六、常见问题
 
 1. 为什么本地模型不翻译或只跑一秒？
 
