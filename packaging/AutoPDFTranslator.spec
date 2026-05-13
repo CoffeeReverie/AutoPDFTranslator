@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 
 spec_root = Path(SPECPATH).resolve()
@@ -22,13 +22,22 @@ datas = [
 binaries = []
 hiddenimports = [
     "streamlit.web.cli",
-    "streamlit.runtime.scriptrunner.script_run_context",
+    "streamlit.runtime.scriptrunner.magic_funcs",
     "streamlit.runtime.runtime",
     "webview",
     "webview.platforms.winforms",
     "webview.platforms.edgechromium",
     "fitz",
 ]
+
+for module_name in [
+    "streamlit.runtime.scriptrunner",
+    "streamlit.runtime.scriptrunner_utils",
+]:
+    try:
+        hiddenimports += collect_submodules(module_name)
+    except Exception:
+        pass
 
 for package_name in ["streamlit", "pydeck", "altair"]:
     try:
